@@ -1,0 +1,40 @@
+# SpecStory explanation file
+.specstory/.what-is-this.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 测试文件
+test_*.py
+*.test.py
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+
+# 备份文件
+*.bak
+*.backup
+
+# 注意：我们保留 data/ 目录，因为需要将数据库文件提交到 GitHub

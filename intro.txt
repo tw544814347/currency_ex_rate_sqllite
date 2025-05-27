@@ -1,0 +1,10 @@
+执行爬虫应用
+cd /Users/wei.tao/Desktop/Cursor\ Files/currency_ex_rate_sqllite
+python currency_crawler.py
+
+希望后台运的命令行 
+nohup python currency_crawler.py > crawler.log 2>&1 &
+
+执行数据查询应用 
+python query_tools.py
+

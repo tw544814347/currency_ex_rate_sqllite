@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时汇率查询系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .update-info {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .rates-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+        
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #e74c3c;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            table {
+                font-size: 0.9rem;
+            }
+            
+            th, td {
+                padding: 8px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💱 实时汇率查询系统</h1>
+            <div class="update-info" id="updateInfo">
+                加载中...
+            </div>
+        </header>
+        
+        <div class="controls">
+            <button onclick="refreshRates()">刷新数据</button>
+            <button onclick="updateRates()">立即更新汇率</button>
+        </div>
+        
+        <div class="rates-container">
+            <div id="content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>加载数据中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const currencyNames = {
+            'CNY': '人民币',
+            'EUR': '欧元',
+            'GBP': '英镑',
+            'JPY': '日元',
+            'HKD': '港币',
+            'AUD': '澳元',
+            'CAD': '加元',
+            'CHF': '瑞士法郎',
+            'SGD': '新加坡元',
+            'XAU': '黄金(盎司)'
+        };
+
+        async function fetchRates() {
+            try {
+                const response = await fetch('/api/rates');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayRates(data.data);
+                    updateLastUpdateTime(data.timestamp);
+                } else {
+                    showError('获取数据失败');
+                }
+            } catch (error) {
+                showError('网络错误: ' + error.message);
+            }
+        }
+
+        function displayRates(rates) {
+            if (!rates || rates.length === 0) {
+                document.getElementById('content').innerHTML = '<div class="error">暂无数据</div>';
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>货币</th>
+                            <th>代码</th>
+                            <th>汇率</th>
+                            <th>1美元兑换</th>
+                            <th>PST时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            rates.forEach(rate => {
+                const currencyName = currencyNames[rate.target] || rate.target;
+                const pstTime = formatPSTTime(rate.utc8_hour);
+                
+                html += `
+                    <tr>
+                        <td>${currencyName}</td>
+                        <td>${rate.target}</td>
+                        <td>${rate.rate.toFixed(4)}</td>
+                        <td>${rate.rate.toFixed(2)} ${rate.target}</td>
+                        <td>${pstTime}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('content').innerHTML = html;
+        }
+
+        function formatPSTTime(utc8Hour) {
+            if (!utc8Hour) return 'N/A';
+            try {
+                const date = new Date(utc8Hour);
+                return date.toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                }) + ' PST';
+            } catch {
+                return utc8Hour;
+            }
+        }
+
+        function updateLastUpdateTime(timestamp) {
+            const date = new Date(timestamp);
+            const timeStr = date.toLocaleString('zh-CN');
+            document.getElementById('updateInfo').textContent = `最后更新: ${timeStr}`;
+        }
+
+        function showError(message) {
+            document.getElementById('content').innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        function refreshRates() {
+            document.getElementById('content').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>加载数据中...</p>
+                </div>
+            `;
+            fetchRates();
+        }
+
+        async function updateRates() {
+            if (confirm('确定要立即更新汇率数据吗？')) {
+                try {
+                    const response = await fetch('/api/update');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert(data.message);
+                        refreshRates();
+                    } else {
+                        alert('更新失败: ' + data.message);
+                    }
+                } catch (error) {
+                    alert('更新失败: ' + error.message);
+                }
+            }
+        }
+
+        // 页面加载时获取数据
+        fetchRates();
+        
+        // 每分钟自动刷新
+        setInterval(fetchRates, 60000);
+    </script>
+</body>
+</html> 
